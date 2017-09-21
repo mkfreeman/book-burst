@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+
+<head>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <link rel="stylesheet" href="//rawgithub.com/Caged/d3-tip/master/examples/example-styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.7.1/d3-tip.js"></script>
+    <style>
+        h1 {
+            margin-bottom: 0px;
+            font-family: sans-serif;
+            font-weight: 100;
+        }
+    </style>
+</head>
+
+<body>
+    <div style="text-align:center;">
+        <h1>Number of Characters in Each Book Chapter</h1>
+        <svg></svg>
+    </div>
+
+</body>
+
+<script>
+    // Variables
+    var width = 700;
+    var height = 700;
+    var radius = Math.min(width, height) / 2;
+    var color = d3.scaleOrdinal(d3.schemeCategory20c);
+
+    // Create primary <g> element
+    var g = d3.select('svg')
+        .attr('width', width)
+        .attr('height', height)
+        .append('g')
+        .attr('transform', 'translate(' + width / 2 + ',' + height / 2 + ')');
+
+    // Use d3.tip() to create a tip element
+    var tip = d3.tip().attr('class', 'd3-tip').html(function(d) {
+        console.log('tip!')
+        return d.data.key
+    });
+
+    // Data strucure
+    var partition = d3.partition()
+        .size([2 * Math.PI, radius]);
+
+    // Load data
+    d3.csv('./data/word-count.csv', function(data) {
+        // Nest your data by level_two and level_three using d3.nest()
+        var nestedData = d3.nest()
+            .key(function(d) {
+                return d.chapter;
+            })
+            .key(function(d) {
+                return d.level_two;
+            }).key(function(d) {
+                return d.level_three;
+            })
+            .entries(data);
+
+        // Set data root
+        var root = d3.hierarchy({
+                values: nestedData
+            }, function(d) {
+                return d.values;
+            })
+            .sum(function(d) {
+                return +d.value
+            });
+
+        // Size arcs
+        partition(root);
+        console.log(root)
+        var arc = d3.arc()
+            .startAngle(function(d) {
+                return d.x0
+            })
+            .endAngle(function(d) {
+                return d.x1
+            })
+            .innerRadius(function(d) {
+                return d.y0
+            })
+            .outerRadius(function(d) {
+                return d.y1
+            });
+
+        // Fill function
+        fill = function(d) {
+            var p = d;
+            if (p.name == 'Global') return
+            while (p.depth > 1) p = p.parent;
+            // console.log("parent ", p)
+            var c = color(p.data.key);
+            return c
+        }
+
+
+        // Put it all together
+        g.selectAll('path')
+            .data(root.descendants().filter(function(d) {
+                return d.data.key != null && d.data.key != "remainder"
+                // return d.data.key != null;
+            }))
+            .enter().append('path')
+            .attr('title', function(d) {
+                return d.data.key
+            })
+            .attr("d", arc)
+            .style('stroke', '#fff')
+            .style("fill", function(d) {
+                return fill(d)
+            })
+            .on('mouseover', tip.show)
+            .on('mouseout', tip.hide)
+
+        g.selectAll('path').call(tip)
+    })
+</script>
